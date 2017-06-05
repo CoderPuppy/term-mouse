@@ -90,8 +90,8 @@ var Mouse = module.exports = (function() {
 					e.shift = !!(modifier & 4);
 					e.meta = !!(modifier & 8);
 					e.ctrl = !!(modifier & 16);
-					e.x = s.charCodeAt(4) - 32;
-					e.y = s.charCodeAt(5) - 32;
+					e.x = d.readUInt8(4) - 32;
+					e.y = d.readUInt8(5) - 32;
 					e.button = null;
 					e.sequence = s;
 					e.buf = Buffer(e.sequence);
