@@ -1,10 +1,10 @@
 {
 	"name": "term-mouse",
 	"version": "0.1.1",
-	"author": "Drew",
+	"author": "CoderPuppy <coderpup@gmail.com>",
 	"main": "./index",
 	"repository": {
 		"type": "git",
-		"url" : "git://github.com/drewyoung1/term-mouse.git"
+		"url" : "git://github.com/CoderPuppy/term-mouse.git"
 	}
 }

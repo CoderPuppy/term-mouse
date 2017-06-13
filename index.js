@@ -1,25 +1,34 @@
-var events = require('events'),
-    util   = require('util'),
-    Stream = require('stream');
+var events = require('events');
+var util   = require('util');
+var Stream = require('stream');
 
-// var mouse = module.exports = function mouse(options) {
-// 	return new Mouse(options);
-// };
+var buttonNames = ['left', 'middle', 'right', 'none'];
+function decodeBtn(v) {
+	var e = {}
+	e.shift = !!(v & 4);
+	e.meta = !!(v & 8);
+	e.control = !!(v & 16);
+	if(v & 64) {
+		e.name = 'scroll';
+		e.button = v & 1 ? 'down' : 'up';
+	} else {
+		e.name = v & 32 ? 'move' : 'buttons';
+		e.button = buttonNames[v & 3];
+		e.btnNum = (v & 3) == 3 ? null : (v & 3) + 1;
+		e.down = (v & 3) != 3;
+	}
+	return e;
+}
 
 var Mouse = module.exports = (function() {
 	function Mouse(options) {
 		if(!(this instanceof Mouse)) return new Mouse(options);
 
 		this.options = options || {};
-		(function() {
-			this.input  = process.stdin;
-			this.output = process.stdout;
-		}).call(this.options.__proto__);
 
-		(function(self, options) {
-			self.input = this.input instanceof Stream ? this.input : process.stdin;
-			self.output = this.output instanceof Stream ? this.output : process.stdout;
-		}).call(options, this, options);
+		this.input = this.options.input || process.stdin;
+		this.output = this.options.output || process.stdout;
+		this.utf8 = !!this.options.utf8;
 
 		process.on('exit', function() {
 			this.stop();
@@ -33,7 +42,7 @@ var Mouse = module.exports = (function() {
 				this.emit('up', e);
 
 				if(this._down) {
-					this.emit('click', this._down);
+					this.emit('click', this._down, e);
 				}
 				this._down = false;
 			} else {
@@ -50,90 +59,140 @@ var Mouse = module.exports = (function() {
 		
 		(function() {
 			this.start = function start() {
-				this._bind();
-				this._resume();
-				this._rawMode();
-				this._sendStart();
+				this.input.on('data', this._onData);
+				this.input.resume();
+				if(this.input.setRawMode)
+					this.input.setRawMode(true)
+				else
+					require('tty').setRawMode(true)
+				if(this.utf8) this.output.write('\x1b[?1005h'); // UTF 8
+				this.output.write('\x1b[?1015h'); // urxvt ASCII
+				this.output.write('\x1b[?1006h'); // xterm ASCII
+				this.output.write('\x1b[?1003h'); // up, down, drag, move
 
 				return this;
-			};
-
-			this._bind = function _bind() {
-				this.input.on('data', this._onData);
-			};
-
-			this._resume = function _resume() {
-				this.input.resume();
-			};
-
-			this._rawMode = function _rawMode() {
-				if(this.input.setRawMode)
-					this.input.setRawMode(true);
-				else
-					require('tty').setRawMode(true);
-			};
-
-			this._sendStart = function _sendStart() {
-				this.output.write('\x1b[?1005h');
-				this.output.write('\x1b[?1003h');
 			};
 
 			this._onData = function _onData(d) {
 				this.emit('data', d);
-				var s = d.toString('utf8');
-				if (s === '\u0003') {
-					process.stdin.pause();
-				} else if (/^\u001b\[M/.test(s)) {
-					// mouse event
-					var modifier = s.charCodeAt(3);
-					var e = {};
-					e.shift = !!(modifier & 4);
-					e.meta = !!(modifier & 8);
-					e.ctrl = !!(modifier & 16);
-					e.x = s.charCodeAt(4) - 32;
-					e.y = s.charCodeAt(5) - 32;
-					e.button = null;
-					e.sequence = s;
-					e.buf = Buffer(e.sequence);
-					if ((modifier & 96) === 96) {
-						e.name = 'scroll';
-						e.button = modifier & 1 ? 'down' : 'up';
-					} else {
-						e.name = modifier & 64 ? 'move' : 'buttons';
-						switch (modifier & 3) {
-							case 0 : e.button = 'left'; break;
-							case 1 : e.button = 'middle'; break;
-							case 2 : e.button = 'right'; break;
-							case 3 : e.button = 'none'; break;
-							default : return;
+				var other = [];
+				sequences: for(var i = 0; i < d.length; i++) {
+					var b = d.readUInt8(i);
+					if(b == 0x1b && d.readUInt8(i + 1) == 0x5b) { // ^[[
+						if(other.length > 0) {
+							this.emit('other', new Buffer(other));
+							other = [];
 						}
+						i += 2;
+						var b = d.readUInt8(i);
+						if(b == 0x4d /* M */) { // standard or UTF-8
+							i++; // skip the M
+							var e;
+							if(this.utf8) {
+								var s = d.toString('utf8', i);
+								e = decodeBtn(s.charCodeAt(0) - 32);
+								e.x = s.charCodeAt(1) - 32;
+								e.y = s.charCodeAt(2) - 32;
+								e.sequence = '\x1b[M' + s;
+								var len = new Buffer(s.substr(0, 3), 'utf8').length;
+								e.buf = d.slice(i - 3, i + len + 1);
+								i += len - 1;
+							} else {
+								var s = d.slice(i - 3, i + 3);
+								e = decodeBtn(d.readUInt8(i++));
+								e.x = d.readUInt8(i++) - 32;
+								e.y = d.readUInt8(i) - 32;
+								e.sequence = s.toString('utf8');
+								e.buf = s;
+							}
+							this.emit('event', e);
+							this.emit(e.name, e);
+						} else if(b == 0x3c /* < */) { // xterm ASCII
+							var j = i;
+							var data = [];
+							while(true) {
+								var v = d.readUInt8(i);
+								data.push(v);
+								if(i >= d.length) {
+									throw new Error('bad');
+								}
+								if(v == 0x4d /* M */ || v == 0x6d /* m */) {
+									break;
+								}
+								i++;
+							}
+							var down = data[data.length - 1] == 0x4d /* M */;
+							data = new Buffer(data).toString('ascii');
+							data = data.substring(1, data.length - 1).split(';').map(function(v) {
+								return parseInt(v)
+							});
+							var e = decodeBtn(data[0]);
+							if(!down) {
+								e.button = 'none';
+								e.down = false;
+							}
+							e.x = data[1];
+							e.y = data[2];
+							e.sequence = '\x1b[<' + data.join(';') + (down ? 'M' : 'm');
+							e.buf = d.slice(j - 2, i + 1);
+							this.emit('event', e);
+							this.emit(e.name, e);
+						} else if(b >= 0x30 /* 0 */ && b <= 0x39 /* 9 */) { // urxvt ASCII
+							var j = i;
+							var data = [];
+							while(true) {
+								var v = d.readUInt8(i);
+								data.push(v);
+								if(i >= d.length) {
+									throw new Error('bad');
+								}
+								if(v == 0x4d /* M */) {
+									break;
+								}
+								if(!((v >= 0x30 && v <= 0x39) || v == 0x3b)) { // 0-9;
+									other = other.concat(data);
+									continue sequences;
+								}
+								i++;
+							}
+							data = new Buffer(data).toString('ascii');
+							data = data.substring(0, data.length - 1).split(';').map(function(v) {
+								return parseInt(v) - 32
+							});
+							var e = decodeBtn(data[0]);
+							e.x = data[1];
+							e.y = data[2];
+							e.sequence = '\x1b[' + data.map(function(v) { return v + 32 }).join(';') + 'M';
+							e.buf = d.slice(j - 2, i + 1);
+							this.emit('event', e);
+							this.emit(e.name, e);
+						}
+					} else if(b == 0x03) { // ^C
+						this.input.pause(); // TODO: I don't know if this is necessary
+						if(other.length > 0) {
+							this.emit('other', new Buffer(other));
+							other = [];
+						}
+						this.emit('ctrl-c');
+					} else {
+						other.push(b);
 					}
-					this.emit('event', e);
-					this.emit(e.name, e);
-				} else {
-					this.emit('other', d, s);
+				}
+				if(other.length > 0) {
+					this.emit('other', new Buffer(other));
+					other = [];
 				}
 			};
 
 			this.stop = function stop() {
-				this._unbind();
-				this._pause();
-				this._sendStop();
+				this.input.removeListener('data', this._onData);
+				this.input.pause();
+				this.output.write('\x1b[?1003l');
+				this.output.write('\x1b[?1005l');
+				this.output.write('\x1b[?1015l');
+				this.output.write('\x1b[?1006l');
 
 				return this;
-			};
-
-			this._unbind = function _unbind() {
-				this.input.removeListener('data', this._onData);
-			};
-
-			this._pause = function _pause() {
-				this.input.pause();
-			};
-
-			this._sendStop = function _sendStop() {
-				this.output.write('\x1b[?1005l');
-				this.output.write('\x1b[?1003l');
 			};
 		}).call(prototype);
 
