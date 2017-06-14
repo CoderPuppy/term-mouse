@@ -49,3 +49,6 @@ All of these include an event object:
 - `y` - the y coordinate of the cursor
 - `sequence` - the string that caused this event (if it's using the standard reporting mode, this could be incorrect because the real sequence is invalid UTF-8)
 - `buf` - the sequence that caused this event as a buffer
+
+## Useful References
+I looked at http://invisible-island.net/xterm/ctlseqs/ctlseqs.html and https://www.systutorials.com/docs/linux/man/7-urxvt/ while making this.
