@@ -199,3 +199,5 @@ var Mouse = module.exports = (function() {
 		return this;
 	}).call(Mouse);
 })();
+
+module.exports.decodeBtn = decodeBtn;

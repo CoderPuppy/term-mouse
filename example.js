@@ -1,4 +1,4 @@
-var mouse = require('./')();
+var mouse = require('.')();
 
 mouse.start();
 mouse.on('click', function(key) {

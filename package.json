@@ -3,8 +3,15 @@
 	"version": "0.2.0",
 	"author": "CoderPuppy <coderpup@gmail.com>",
 	"main": "./index",
+	"scripts": {
+		"test": "ava"
+	},
 	"repository": {
 		"type": "git",
-		"url" : "git://github.com/CoderPuppy/term-mouse.git"
-	}
+		"url": "git://github.com/CoderPuppy/term-mouse.git"
+	},
+	"devDependencies": {
+		"ava": "^0.25.0"
+	},
+	"dependencies": {}
 }
