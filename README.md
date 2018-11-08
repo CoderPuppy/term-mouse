@@ -1,4 +1,9 @@
 # Term Mouse
+
+[![npm](https://img.shields.io/npm/v/term-mouse.svg)](https://www.npmjs.com/package/term-mouse)
+[![Build Status](https://travis-ci.com/CoderPuppy/term-mouse.svg?branch=master)](https://travis-ci.com/CoderPuppy/term-mouse)
+[![codecov](https://codecov.io/gh/CoderPuppy/term-mouse/branch/master/graph/badge.svg)](https://codecov.io/gh/CoderPuppy/term-mouse)
+
 ### A mouse reporting interface
 
 Originally based on [TooTallNate's gist](https://gist.github.com/1702813), rewritten to use all the mouse reporting modes.
