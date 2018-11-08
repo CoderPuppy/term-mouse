@@ -11,7 +11,8 @@
 		"url": "git://github.com/CoderPuppy/term-mouse.git"
 	},
 	"devDependencies": {
-		"ava": "^0.25.0"
+		"ava": "^0.25.0",
+		"highland": "^2.13.0"
 	},
 	"dependencies": {}
 }
