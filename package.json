@@ -3,8 +3,20 @@
 	"version": "0.2.0",
 	"author": "CoderPuppy <coderpup@gmail.com>",
 	"main": "./index",
+	"scripts": {
+		"test": "ava",
+		"cover": "nyc npm test",
+		"publish-coverage": "nyc report --reporter=text-lcov > coverage.lcov && codecov"
+	},
 	"repository": {
 		"type": "git",
-		"url" : "git://github.com/CoderPuppy/term-mouse.git"
-	}
+		"url": "git://github.com/CoderPuppy/term-mouse.git"
+	},
+	"devDependencies": {
+		"ava": "^0.25.0",
+		"codecov": "^3.1.0",
+		"highland": "^2.13.0",
+		"nyc": "^13.1.0"
+	},
+	"dependencies": {}
 }
