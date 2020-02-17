@@ -5,6 +5,6 @@
 	"main": "./index",
 	"repository": {
 		"type": "git",
-		"url" : "git://github.com/CoderPuppy/term-mouse.git"
+		"url": "git://github.com/CoderPuppy/term-mouse.git"
 	}
 }
