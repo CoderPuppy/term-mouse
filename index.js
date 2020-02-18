@@ -78,7 +78,8 @@ var Mouse = module.exports = (function() {
 				var other = [];
 				sequences: for(var i = 0; i < d.length; i++) {
 					var b = d.readUInt8(i);
-					if(b == 0x1b && i < d.length + 1 && d.readUInt8(i + 1) == 0x5b) { // ^[[
+					if(b == 0x1b && i < d.length - 1 && d.readUInt8(i + 1) == 0x5b) { // ^[[
+
 						if(other.length > 0) {
 							this.emit('other', new Buffer(other));
 							other = [];
